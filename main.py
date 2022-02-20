@@ -30,10 +30,6 @@ class Block:
     def feed(self):
         random_index = random.randint(0, len(BLOCKS)-1)
         self.data = BLOCKS[random_index][:]
-        self.data = [
-            [1, 1, 1],
-            [0, 1, 0]
-        ]
         self.set_initial_position()
     def set_initial_position(self):
         self.y = 0-(len(self.data))
@@ -71,28 +67,34 @@ class App:
         self.initialize_matrix()
         self.block = Block()
         self.last_moved = time.time()
-        self.min_time_gap_between_moving_blocks = 0.1
+        self.min_time_gap_between_moving_blocks = 0.4
     def initialize_matrix(self):
         self.matrix = []
         for _ in range(ROWS):
             new_row = [0]*COLS
             self.matrix.append(new_row[:])
+        # for i in range(COLS):
+        #     self.matrix[7][i] = 1
     def move_blocks(self):
         if (time.time()-self.last_moved)>=self.min_time_gap_between_moving_blocks:
             self.block.move_down()
             self.last_moved = time.time()
-    def will_block_touch_others_or_wall(self):
+    def will_block_touch_other_blocks_by_moving_down(self):
+        if self.block.y>=0:
+            for i in range(ROWS-1):
+                for j in range(COLS):
+                    if self.matrix[i+1][j]==1:
+                        # check if block covers that point
+                        if (self.block.y)<=i<=(self.block.y+(len(self.block.data)-1)):
+                            if (self.block.x)<=j<=(self.block.x+(len(self.block.data[0])-1)):
+                                x = j-self.block.x
+                                y = i-self.block.y
+                                if self.block.data[y][x]==1:
+                                    return True
+        return False
+    def will_block_touch_wall(self):
         if (self.block.y+1+(len(self.block.data)-1))>=ROWS:
             return True
-        if self.block.y>=0:
-            matrix_y = self.block.y+1
-            for i in range(len(self.matrix[matrix_y])):
-                if self.matrix[matrix_y][i]==1:
-                    block_y = self.block.y+len(self.block.data)-1
-                    if (self.block.x)<=i<=(self.block.x+len(self.block.data[0])-1):
-                        block_x_correspondent_to_matrix_x = i-self.block.x
-                        if self.block.data[-1][block_x_correspondent_to_matrix_x]==1:
-                            return True
         return False
     def draw_block(self):
         for i in range(len(self.block.data)):
@@ -122,13 +124,26 @@ class App:
                     j_ = self.block.x+j
                     if self.block.data[i][j]==1:
                         self.matrix[i_][j_] = 1
+    def check_and_Work_on_clearing_lines(self):
+        indices_to_be_removed = []
+        for index in range(ROWS):
+            if 0 not in self.matrix[index]:
+                indices_to_be_removed.append(index)
+        temp_matrix = self.matrix[::]
+        for index in indices_to_be_removed:
+            temp_matrix.pop(index)
+        for _ in range(len(indices_to_be_removed)):
+            new_empty_row = [0]*COLS
+            temp_matrix.insert(0, new_empty_row[:])
+        self.matrix = temp_matrix[::]
     def action(self, dont_move=False):
-        if self.will_block_touch_others_or_wall():
+        if self.will_block_touch_wall() or self.will_block_touch_other_blocks_by_moving_down():
             self.save_block_on_matrix()
             self.block.feed()
         else:
             if not dont_move:
                 self.move_blocks()
+        self.check_and_Work_on_clearing_lines()
     def run(self):
         while self.play:
             moved_on_side = False
@@ -148,6 +163,8 @@ class App:
                     elif event.key==K_RIGHT:
                         self.block.move(1)
                         moved_on_side = True
+                    elif event.key==K_SPACE:
+                        self.block.rotate()
             #--------------------------------------------------------------
             self.action(dont_move=moved_on_side)
             self.render()
